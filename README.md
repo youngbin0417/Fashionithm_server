@@ -35,10 +35,10 @@
         ┌───────────────────────────────┼───────────────────────────────┐
         │                               │                               │
 ┌───────▼────────┐          ┌───────────▼──────────┐        ┌───────────▼────────┐
-│   인증 서비스   │          │   핵심 비즈니스 서비스  │        │   알림 서비스       │
+│   사용자 서비스  │          │   핵심 비즈니스 서비스  │        │   알림 서비스       │
 │  (Spring Boot) │          │    (Spring Boot)      │        │  (WebSocket/STOMP) │
 │                │          │                       │        │                    │
-│ • JWT 발급     │          │ • 인플루언서 관리       │        │ • 실시간 알림       │
+│ • 인증/권한     │          │ • 인플루언서 관리       │        │ • 실시간 알림       │
 │ • OAuth 처리   │          │ • 브랜드 감지          │        │ • SSE Fallback    │
 │ • 토큰 관리    │          │ • 추천 엔진            │        │                    │
 └────────────────┘          └───────────┬───────────┘        └────────────────────┘
@@ -46,12 +46,12 @@
                     ┌───────────────────┼───────────────────┐
                     │                   │                   │
            ┌────────▼────────┐ ┌────────▼────────┐ ┌────────▼────────┐
-           │  데이터 수집     │ │  추천 엔진       │ │  외부 연동       │
-           │  서비스         │ │  서비스          │ │  서비스         │
+           │  인플루언서       │ │  추천 엔진       │ │  외부 연동       │
+           │  도메인         │ │  도메인          │ │  도메인         │
            │                 │ │                 │ │                 │
-           │ • Instagram API │ │ • Graph-based   │ │ • 무신사 API    │
-           │ • 크롤러(백업)   │ │   CF           │ │ • 에이블리 API  │
-           │ • 이미지 분석    │ │ • 랭킹 알고리즘  │ │ • 결제 연동     │
+           │ • 게시물 수집    │ │ • Graph-based   │ │ • 무신사 API    │
+           │ • Rate Limit 관리│ │   CF           │ │ • 에이블리 API  │
+           │ • Webhook 처리   │ │ • 랭킹 알고리즘  │ │ • 결제 연동     │
            └────────┬────────┘ └─────────────────┘ └─────────────────┘
                     │
 ┌───────────────────▼─────────────────────────────────────────────────────────┐
@@ -249,17 +249,17 @@ ORDER BY trend_score DESC
 
 ## 5. 서비스별 상세 설계
 
-### 5.1 데이터 수집 서비스 (Collector Service)
+### 5.1 인플루언서 도메인 (Influencer Domain)
 
 ```java
 @Service
-public class InstagramCollectorService {
-    
+public class InfluencerService {
+
     @Value("${instagram.rate-limit:200}")
     private int hourlyLimit;
-    
+
     private final RateLimiter rateLimiter;
-    
+
     // Instagram Graph API Rate Limit 관리 (200/hour)
     // Sliding Window 알고리즘 사용
     public void collectPosts(List<Influencer> influencers) {
@@ -269,7 +269,7 @@ public class InstagramCollectorService {
                 scheduleRetry(influencer, Duration.ofMinutes(15));
                 continue;
             }
-            
+
             try {
                 InstagramPost post = fetchFromGraphAPI(influencer);
                 kafkaTemplate.send("instagram.post.raw", post);
@@ -278,7 +278,7 @@ public class InstagramCollectorService {
             }
         }
     }
-    
+
     // Webhook 지원 (실시간)
     @EventListener
     public void onInstagramWebhook(InstagramWebhookEvent event) {
@@ -288,28 +288,28 @@ public class InstagramCollectorService {
 }
 ```
 
-### 5.2 브랜드 감지 서비스 (Detection Service)
+### 5.2 브랜드 도메인 (Brand Domain)
 
 ```java
 @Component
 public class BrandDetectionPipeline {
-    
+
     // 멀티모달 감지 (텍스트 + 이미지)
     public DetectionResult detect(Post post) {
         // 1. 텍스트 분석 (해시태그 + 캡션)
         TextAnalysisResult textResult = nlpAnalyzer.analyze(post.getCaption());
-        
+
         // 2. 이미지 분석 (Google Vision API - 옵션)
         ImageAnalysisResult imageResult = visionAnalyzer.analyze(post.getImageUrl());
-        
+
         // 3. 신뢰도 계산 (앙상블)
         double confidence = calculateConfidence(textResult, imageResult);
-        
+
         // 4. 브랜드 매칭
         List<BrandMatch> matches = brandRepository.findByKeywords(
             textResult.getKeywords()
         );
-        
+
         return DetectionResult.builder()
             .postId(post.getId())
             .brandMatches(matches)
@@ -395,19 +395,19 @@ public class GraphRecommendationService {
 - [ ] Neo4j 5.x 클러스터 구축 (Core + Read Replica)
 - [ ] Kafka 클러스터 구축 (3 brokers)
 - [ ] Spring Boot 3.2 + Java 21 마이그레이션 (Virtual Threads 활용)
-- [ ] 기본 CRUD API 및 관리자 페이지
+- [ ] 도메인 기반 아키텍처 구축 (DDD)
 
-### Phase 2: Instagram Graph API 연동 (2주)
-- [ ] 비즈니스 계정 전환 가이드 및 검증
+### Phase 2: 인플루언서 도메인 구현 (2주)
+- [ ] 인플루언서 관리 기능
+- [ ] Instagram Graph API 연동
 - [ ] Rate Limit 관리 시스템 (Redis 기반)
-- [ ] Webhook 수신 및 처리
-- [ ] 폴백 폴링 메커니즘
+- [ ] 게시물 수집 및 Webhook 처리
 
-### Phase 3: 그래프 기반 추천 (3주)
+### Phase 3: 브랜드/추천 도메인 구현 (3주)
 - [ ] 브랜드 감지 NLP 모델 (KoBERT 기반 한국어 최적화)
+- [ ] 브랜드 감지 파이프라인 구현
 - [ ] Neo4j GDS (Graph Data Science) 통합
-- [ ] 실시간 추천 API
-- [ ] A/B 테스트 프레임워크
+- [ ] 실시간 추천 엔진
 
 ### Phase 4: 상용화 (2주)
 - [ ] 무신사 API 연동 (파트너스 프로그램 가입 필요)
@@ -416,3 +416,29 @@ public class GraphRecommendationService {
 - [ ] 부하 테스트 (K6)
 
 ---
+
+## 9. 도메인 구조
+
+### 최종 도메인 구조 (7개 도메인)
+
+```
+com.example.fashionithm/
+├── common/                 # 공통 유틸리티 및 설정
+├── brand/                  # 브랜드 관리 + 브랜드 감지 기능
+├── influencer/             # 인플루언서 관리 + 데이터 수집 + 게시물 기능
+├── notification/           # 알림 서비스
+├── product/                # 제품 관리
+├── recommendation/         # 추천 엔진
+├── sponsorship/            # 협찬 관계
+└── user/                   # 사용자 관리 + 인증 기능
+```
+
+### 도메인 통합 현황
+
+| 통합 전 | 통합 후 | 이유 |
+|---------|---------|------|
+| authentication | user | 인증 기능은 사용자 도메인의 일부 |
+| datacollection | influencer | 데이터 수집은 인플루언서 도메인의 인프라 |
+| detection | brand | 브랜드 감지는 브랜드 도메인의 핵심 기능 |
+| external | 각 도메인의 infrastructure | 외부 연동은 관련 도메인에 분산 |
+| post | influencer | 게시물은 인플루언서의 하위 개념 |
