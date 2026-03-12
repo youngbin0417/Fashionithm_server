@@ -11,49 +11,49 @@ public class InfluencerRepository {
     private final Map<Long, Influencer> influencers = new HashMap<>();
 
     public InfluencerRepository() {
-        // 하드코딩된 인플루언서 데이터
+        // Hardcoded influencer data
         influencers.put(1L, Influencer.builder()
             .id(1L)
-            .name("김패션")
+            .name("Fashion Kim")
             .instagramId("fashion_kim")
             .followerCount(150000)
-            .category("패션")
+            .category("Fashion")
             .tier("macro")
             .build());
 
         influencers.put(2L, Influencer.builder()
             .id(2L)
-            .name("스타일지수")
+            .name("Style Index")
             .instagramId("style_index")
             .followerCount(85000)
-            .category("패션")
+            .category("Fashion")
             .tier("macro")
             .build());
 
         influencers.put(3L, Influencer.builder()
             .id(3L)
-            .name("데일리룩")
+            .name("Daily Look")
             .instagramId("daily_look")
             .followerCount(45000)
-            .category("패션")
+            .category("Fashion")
             .tier("micro")
             .build());
 
         influencers.put(4L, Influencer.builder()
             .id(4L)
-            .name("스트릿패션")
+            .name("Street Fashion")
             .instagramId("street_fashion")
             .followerCount(120000)
-            .category("스트릿")
+            .category("Street")
             .tier("macro")
             .build());
 
         influencers.put(5L, Influencer.builder()
             .id(5L)
-            .name("미니멀룩")
+            .name("Minimal Look")
             .instagramId("minimal_look")
             .followerCount(67000)
-            .category("미니멀")
+            .category("Minimal")
             .tier("micro")
             .build());
     }
